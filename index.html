@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webcam in Green Screen with Background and Filters</title>
+    <style>
+        /* General Page and Background Styling */
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+        }
+        #background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -2;
+        }
+
+        /* Logo Styling */
+        #logo {
+            position: absolute;
+            top: 20px; /* Adjust the top position as needed */
+            right: 20px; /* Position from the right */
+            z-index: 10; /* Make sure it appears above other elements */
+            width: 100px; /* Set a width for the logo, adjust as necessary */
+            height: auto; /* Maintain aspect ratio */
+        }
+
+        /* Container and Webcam Styling */
+        #container {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1;
+        }
+        #overlay {
+            max-width: 100vw;
+            max-height: 100vh;
+            width: auto;
+            height: auto;
+            z-index: 2;
+        }
+        #webcam-container {
+            position: absolute;
+            overflow: hidden;
+            z-index: 3;
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+        }
+        #webcam {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+
+        /* PNG Overlay Styling */
+        .png-overlay {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            z-index: 4;
+            max-width: 50%; /* Set the maximum width to 20% of the viewport width */
+            max-height: 50%; /* Set the maximum height to 20% of the viewport height */
+        }
+
+        /* Flashing Text Styling */
+        #human-error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: Arial, sans-serif;
+            font-size: 18px;
+            font-weight: thin;
+            color: white;
+            z-index: 5;
+            text-align: center;
+            letter-spacing: 2px;
+            display: none;
+        }
+
+        /* Filter Buttons */
+        #filter-options {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 10;
+            display: flex;
+            gap: 10px;
+        }
+        .filter-btn {
+            padding: 5px 10px;
+            background-color: rgba(255, 255, 255, 0.7);
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.3s;
+        }
+        .filter-btn:hover {
+            background-color: rgba(255, 255, 255, 0.9);
+        }
+        #webcam-container.lines::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 2px,
+                rgba(0, 0, 0, 0.1) 2px,
+                rgba(0, 0, 0, 0.1) 4px
+            );
+            z-index: 5;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        #webcam-container.lines::before {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <img id="logo" src="pifc hub logo.png" alt="Logo"> <!-- Add your logo here -->
+    <img id="background" src="background w:o cam.jpg" alt="Background Image">
+    <div id="container">
+        <img id="overlay" src="grey img window.png" alt="Overlay with Green Screen">
+        <div id="webcam-container">
+            <video id="webcam" autoplay playsinline></video>
+        </div>
+        <div id="human-error">HUMAN ERROR</div> <!-- Flashing Text -->
+
+        <!-- Centered PNG Overlays -->
+        <img id="png-overlay-1" class="png-overlay" src="hazard icons.png" alt="PNG Overlay 1">
+        <img id="png-overlay-2" class="png-overlay" src="sensitive content.png" alt="PNG Overlay 2">
+    </div>
+
+    <div id="filter-options">
+        <button class="filter-btn" data-filter="none">Normal</button>
+        <button class="filter-btn" data-filter="grayscale(100%)">B&W</button>
+        <button class="filter-btn" data-filter="brightness(1.2) blur(5px)">Bloom</button>
+        <button class="filter-btn" data-filter="lines">Lines</button>
+        <button class="filter-btn" data-filter="sepia(100%)">Sepia</button>
+        <button class="filter-btn" data-filter="brightness(0.7) contrast(1.2)">Low Exposure</button>
+    </div>
+
+    <script>
+        const background = document.getElementById('background');
+        const overlay = document.getElementById('overlay');
+        const webcamContainer = document.getElementById('webcam-container');
+        const video = document.getElementById('webcam');
+        const humanError = document.getElementById('human-error');
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        
+        // Overlay PNGs
+        const pngOverlay1 = document.getElementById('png-overlay-1');
+        const pngOverlay2 = document.getElementById('png-overlay-2');
+
+        // Access webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+          .then(stream => {
+              video.srcObject = stream;
+          })
+          .catch(error => {
+              console.error('Error accessing webcam:', error);
+              alert('Could not access the webcam. Please ensure it is connected and permissions are granted.');
+          });
+
+        // Function to position the webcam within the green screen area
+        function positionWebcam() {
+          const greenScreenX = 322.5; 
+          const greenScreenY = 238.5; 
+          const greenScreenWidth = 906; 
+          const greenScreenHeight = 654;
+
+          const scale = overlay.width / overlay.naturalWidth;
+
+          webcamContainer.style.left = `${greenScreenX * scale}px`;
+          webcamContainer.style.top = `${greenScreenY * scale}px`;
+          webcamContainer.style.width = `${greenScreenWidth * scale}px`;
+          webcamContainer.style.height = `${greenScreenHeight * scale}px`;
+      }
+
+      // Position webcam and overlays when the overlay image is loaded
+      overlay.addEventListener('load', positionWebcam);
+      window.addEventListener('resize', positionWebcam);
+
+      // Set initial position for PNG overlays (centered)
+      pngOverlay1.style.left = '60%';
+      pngOverlay1.style.top = '65%';
+      pngOverlay2.style.left = '80%';
+      pngOverlay2.style.top = '50%';
+
+      // Flashing text function (HUMAN ERROR)
+      setInterval(() => {
+          humanError.style.display = humanError.style.display === 'none' ? 'block' : 'none';
+      }, 1000); // Toggle visibility every second
+
+      // Filter functionality
+      filterButtons.forEach(button => {
+          button.addEventListener('click', () => {
+              const filter = button.getAttribute('data-filter');
+              webcamContainer.classList.remove('lines');
+              
+              if (filter === 'lines') {
+                  webcamContainer.classList.add('lines');
+                  video.style.filter = 'none';
+              } else {
+                  video.style.filter = filter; // Apply selected filter
+              }
+          });
+      });
+    </script>
+</body>
+</html>
+
